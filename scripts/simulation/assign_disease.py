@@ -50,7 +50,7 @@ class Assign(luigi.Task):
         with open(self.beta, 'r') as infile:
             for line in infile:
                 line = line.strip().split('\t')
-                betas[int(line[0])-1] = float(line[3])
+                betas[int(line[0])-1] = float(line[2])
         # determine disease status for each individual in .spl file
         with open(self.spl, 'r') as infile, self.output().open('w') as outfile:
             for i, line in enumerate(infile):
@@ -97,5 +97,4 @@ class Parallelize(luigi.WrapperTask):
         spl_list = sorted(spl_list)
         beta_list = sorted(beta_list)
         for spl, beta in zip(spl_list, beta_list):
-            print spl, beta
             yield Assign(spl=spl, beta=beta, length=self.length, pop=self.popsize)
