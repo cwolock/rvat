@@ -51,7 +51,7 @@ class Assign(luigi.Task):
                 regions[region][1] += seg
         for region, value in regions.iteritems():
             # divide regional PAF by number of variant sites to get per-variant PAF
-            value[2] = value[0]/float(value[1])
+            value[2] = value[0]/float(value[1]) if float(value[1]) != 0 else 0
         ordered_sites = sorted(sites.items(), key=lambda x: x[0])
         with self.output().open('w') as outfile:
             for site in ordered_sites:
@@ -88,6 +88,7 @@ class Parallelize(luigi.WrapperTask):
                 end = int(line[1])
                 bases = end - start + 1
                 frac = bases/float(self.length)
+                print frac
                 loci = range(start, end+1)
                 region_d[i] = [frac, 0, 0]
                 for locus in loci:
