@@ -25,12 +25,12 @@ class RequireFiles(luigi.ExternalTask):
 class GenMap(luigi.Task):
     """
     Class for generating .map from .spl
-    param regions: (string) regions file
+    param length: (int) number of sites
     param pop: (int) population size
     param spl: (string) name of .spl file 
     """
 
-    regions = luigi.Parameter()
+    length = luigi.IntParameter()
     pop = luigi.IntParameter()
     spl = luigi.Parameter()
 
@@ -42,12 +42,7 @@ class GenMap(luigi.Task):
         return luigi.LocalTarget('{prefix}map'.format(prefix=prefix))
     
     def run(self):
-        site_l = []
-        with open(self.regions, 'r') as infile:
-            for line in infile:
-                line = line.strip().split('\t')
-                site_l.extend([x for x in range(int(line[0]),int(line[1])+1)])
-        site_d = {n: [0,0] for n in site_l}
+        site_d = {n: [0,0] for n in range(1,self.length+1)}
         with open(self.spl, 'r') as infile:
              for line in infile:
                 line = line.strip().split('\t')
@@ -63,11 +58,11 @@ class GenMap(luigi.Task):
 class Parallelize(luigi.WrapperTask):
     """
     Class for parallelizing the GenMap task
+    param length: (int) number of sites
     param popsize: (int) number of individuals
-    param regions: (string) regions file
     """
     
-    regions = luigi.Parameter()
+    length = luigi.IntParameter()
     popsize = luigi.IntParameter()
     
     def requires(self):
@@ -77,4 +72,4 @@ class Parallelize(luigi.WrapperTask):
             if f.endswith('.spl'):
                 spl_list.append(f)
         for spl in spl_list:
-            yield GenMap(spl=spl, regions=self.regions, pop=self.popsize)
+            yield GenMap(spl=spl, length=self.length, pop=self.popsize)

@@ -27,16 +27,26 @@ def update(d, odds_r):
         d[(2,3)][0] += 1
     elif 3 <= odds_r < 5:
         d[(3,5)][0] += 1
-    elif 5 <= odds_r < 100:
-        d[(5,100)][0] += 1
+    elif 5 <= odds_r < 10:
+        d[(5,10)][0] += 1
+    elif 10 <= odds_r < 100:
+        d[(10,100)][0] += 1
     return d
      
 def calc_frac(d, tot):
     for k, v in d.iteritems():
-        v[1] = v[0]/float(tot)
+        v[1] = v[0]/float(tot) if tot > 0 else 0
     return d
  
-def analyze(output_file):
+def analyze(output_file, region_file):
+    regions = []
+    with open(region_file, 'r') as infile:
+        for line in infile:
+            line = line.strip().split()
+            regions.append([int(line[0]),int(line[1])])
+    sites = []
+    for region in regions:
+        sites.extend(range(region[0],region[1]+1))
     # make list of all beta files in directory 
     # (assuming these are replicates with same parameters)
     beta_list = []
@@ -45,7 +55,7 @@ def analyze(output_file):
         if f.endswith('beta'):
             beta_list.append(f)
     bins = [(1,1.1),(1.1,1.2),(1.2,1.3),(1.3,1.4),(1.4,1.5),
-            (1.5,1.6),(1.6,2),(2,3),(3,5),(5,100)]
+            (1.5,1.6),(1.6,2),(2,3),(3,5),(5,10),(10,100)]
     rares = 0
     comms = 0
     r_dist = {b: [0,0] for b in bins}
@@ -54,6 +64,9 @@ def analyze(output_file):
         with open(f, 'r') as infile:
             for line in infile:
                 line = line.strip().split()
+                pos = int(line[0])
+                if pos not in sites:
+                    continue
                 MAF = float(line[1])
                 OR = float(line[3])
                 if 0 < MAF <= 0.01:
@@ -65,15 +78,21 @@ def analyze(output_file):
     r_dist = calc_frac(r_dist, rares)
     c_dist = calc_frac(c_dist, comms)
     with open(output_file, 'w') as outfile:
-        outfile.write('bin\trcount\tccount\trfrac\tcfrac\n')
+        outfile.write('bin\ttype\tcount\tfrac\n')
         for k, v in r_dist.iteritems():
-             outfile.write('{BIN}\t{rc}\t{cc}\t{rf}\t{cf}\n'.format(
-                BIN=k,rc=v[0],cc=c_dist[k][0],rf=v[1],cf=c_dist[k][1]))
+             #outfile.write('{BIN}\t{rc}\t{cc}\t{rf}\t{cf}\n'.format(
+             #   BIN=k,rc=v[0],cc=c_dist[k][0],rf=v[1],cf=c_dist[k][1]))
+             outfile.write('{BIN}\trare\t{rc}\t{rf}\n'.format(
+                BIN=k,rc=v[0],rf=v[1]))
+        for k, v in c_dist.iteritems():
+             outfile.write('{BIN}\tcommon\t{cc}\t{cf}\n'.format(
+                BIN=k,cc=v[0],cf=v[1]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--output_file', help='Specify name of output file')
+    parser.add_argument('--region_file', help='Specify name of region file')
     args = parser.parse_args()
-    analyze(args.output_file)
+    analyze(args.output_file, args.region_file)

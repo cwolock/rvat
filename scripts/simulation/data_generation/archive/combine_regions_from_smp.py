@@ -2,7 +2,7 @@
 """
 combine_regions.py
 
-Combines .mut files based on regions specific in regions file. 
+Combines .smp files based on regions specific in regions file. 
 Give a range of positions to take from each selection coefficient file 
 """
 
@@ -27,13 +27,13 @@ class Splice(luigi.Task):
     """
     Class for splicing from a .smp files
     param files: (list) contains lists of [file_name, s] for all files to be spliced
-    param pop: (string) population for output file name
-    param bounds: (dict) {s: [[start, end],[start, end]...]}
+    param comb: (tuple) (population, subsampl) tuple for output file name
+    param bounds: (dict) {s: [start, end]}
     param prefix: (string) prefix of regions file, used for naming output files
     """
 
     files = luigi.ListParameter()
-    pop = luigi.Parameter()
+    comb = luigi.TupleParameter()
     bounds = luigi.DictParameter()
     prefix = luigi.Parameter()
 
@@ -42,20 +42,15 @@ class Splice(luigi.Task):
             return RequireFiles(f=f[0])
     
     def output(self):
-        name = '.'.join([self.prefix,self.pop,'spl'])
+        name = '.'.join([self.prefix,self.comb[0],self.comb[1],'spl'])
         return luigi.LocalTarget(name)
     
     def run(self):
         indiv_dict = {}
         for f in self.files:
             with open(f[0], 'r') as infile:
-                sites = []
-                for region in self.bounds[f[1]]:
-                    start = region[0]
-                    end = region[1]
-                    sites.extend(range(start, end + 1))
-                #start = self.bounds[f[1]][0]
-                #end = self.bounds[f[1]][1] 
+                start = self.bounds[f[1]][0]
+                end = self.bounds[f[1]][1] 
                 for i, line in enumerate(infile):
                     line = line.strip().split('\t')
                     indiv = int(line[0])
@@ -63,7 +58,7 @@ class Splice(luigi.Task):
                         indiv_dict[indiv] = [[],[]]
                     indiv_dict[indiv][i%2].extend(
                         [int(pos) for pos in line[1:] if 
-                            int(pos) in sites])
+                            int(pos) >= start and int(pos) <= end])
         for k, v in indiv_dict.iteritems():
             v[0] = sorted(list(set(v[0])))
             v[0] = map(str, v[0])
@@ -92,38 +87,34 @@ class Parallelize(luigi.WrapperTask):
             for line in infile:
                 line = line.strip().split('\t')
                 # FIX THIS IF MULTIPLE REGIONS FOR SAME SEL COEFFICIENT
-                #bounds[line[2]] = [int(line[0]), int(line[1])]
-                if line[2] not in bounds:
-                    bounds[line[2]] = []
-                bounds[line[2]].append([int(line[0]), int(line[1])])
+                bounds[line[2]] = [int(line[0]), int(line[1])]
         
-        # group .mut files for splicing
+        # group .muts files for splicing
         cwd = os.getcwd()
-        mut_dict = {} # dict of .smp files present in directory
+        smp_dict = {} # dict of .smp files present in directory
         sels = set() # set of selection coefficients present in directory
         pops = set() # set of population indices present in directory
-        #subsamps = set() # set of subsample indices present in dictionary
+        subsamps = set() # set of subsample indices present in dictionary
         for f in os.listdir(cwd):
-            # imagining file naming system like {sel}.{pop}.mut
-            if f.endswith('.mut'):
+            # imagining file naming system like {sel}.{pop}.{subsamp}.smp
+            if f.endswith('.smp'):
+            #if f.endswith('.mut'):
                 f_spl = f.strip().split('.')
                 if f_spl[0] not in bounds:
                     continue
                 sels.add(f_spl[0])
                 pops.add(f_spl[1])
-                #subsamps.add(f_spl[2])
-                # sel coeff and pop for each file
-                mut_dict[f] = [f_spl[0],f_spl[1]]
+                subsamps.add(f_spl[2])
+                smp_dict[f] = [f_spl[0],f_spl[1],f_spl[2]]
         if len(bounds) != len(sels):
             sys.exit('Invalid regions file')
-        if ((len(mut_dict) % len(sels) != 0) or 
-            (len(mut_dict) % len(pops) != 0)):# or
-            #(len(smp_dict) % len(subsamps) != 0)):
-            sys.exit('Invalid number of .mut files present')
-        #pop_smp_combs = list(itertools.product(pops, subsamps))
-        pop_dict = {pop: [] for pop in pops}
-        # for each pop, make of dict of the files (and sel coeff) to combine
-        for k, v in mut_dict.iteritems():
-            pop_dict[v[1]].append([k,v[0]])
-        for k, v in pop_dict.iteritems():
-            yield Splice(files=v,pop=k,bounds=bounds,prefix=prefix)
+        if ((len(smp_dict) % len(sels) != 0) or 
+            (len(smp_dict) % len(pops) != 0) or
+            (len(smp_dict) % len(subsamps) != 0)):
+            sys.exit('Invalid number of .smp files present')
+        pop_smp_combs = list(itertools.product(pops, subsamps))
+        comb_dict = {comb: [] for comb in pop_smp_combs}
+        for k, v in smp_dict.iteritems():
+            comb_dict[(v[1],v[2])].append([k,v[0]])
+        for k, v in comb_dict.iteritems():
+            yield Splice(files=v,comb=k,bounds=bounds,prefix=prefix)
