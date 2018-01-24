@@ -24,20 +24,18 @@ class RequireFiles(luigi.ExternalTask):
 class Assign(luigi.Task):
     """
     Class for generating .map from .spl
-    param reg_f: (str) name of regions file
+    param region_d: (dict) dict of regional info
     param map_f: (str) name of .map file to assign betas to
     param site_d: (dict) dict of site info
     param delta: (float) fraction of variants that are causal (beta != 0)
     param epsilon: (float) fraction of causal variants with negative beta (protective)
     """
 
-    reg_f = luigi.Parameter()
+    region_d = luigi.DictParameter()
+    site_d = luigi.DictParameter()
     map_f = luigi.Parameter()
     delta = luigi.FloatParameter()
     epsilon = luigi.FloatParameter()
-    PAF = luigi.FloatParameter()
-    mode = luigi.Parameter()
-    ratio = luigi.Parameter() 
     
     def requires(self):
         return RequireFiles(f=self.map_f)
@@ -47,66 +45,8 @@ class Assign(luigi.Task):
         return luigi.LocalTarget('{prefix}beta'.format(prefix=prefix))
     
     def run(self):
-        # region_d[region #] = [reg. PAF, [seg sites], per-var PAF, 
-        #                       length of region, selection coefficient]
-        # site_d[coordinate] = [region, MAF, causal indicator, protective indicator] 
-        region_d = {}
-        site_d = {}
-        with open(self.reg_f, 'r') as infile:
-            for i, line in enumerate(infile):
-                line = line.strip().split('\t')
-                start = int(line[0])
-                end = int(line[1])
-                name = line[2]
-                bases = end - start + 1
-                if self.mode == 'bases':
-                    bases = end - start + 1
-                elif self.mode == 'coeff':
-                    s = float(name.strip('sel'))
-                    if s != 0:
-                        #bases = 10000 * s
-                        bases = s
-                    else: #bases = 1
-                        bases = 0.0001
-                #elif self.mode = 
-                # list of sites in region
-                loci = range(start, end+1)
-                # initialize site and region dict
-                region_d[i] = [0, [], 0, bases]
-                for locus in loci:
-                    site_d[locus] = [i, 0, 0, 0]
-        # if not doing regional variation in PAF assignments
-        if self.ratio == 'uniform':
-            region_d = {0: [0, [], 0, np.sum([v[3] for k, v 
-                                                   in region_d.iteritems()])]}
-            for k, v in site_d.iteritems():
-                v[0] = 0
-        # sort the region dict (allows use of numpy array below)
-        ordered = sorted(region_d.items(), key=lambda x:x[0])
-        # get lengths of all the regions
-        segments = np.array([x[1][3] for x in ordered])
-        # divide up the total PAF using one of several possible schemas
-        # 1) PAF ratio of two regions is equal to ratio of sqrts of lengths
-        if self.ratio == 'sqrt':
-            factors = np.sqrt(segments)
-        # 2) PAF ratio of two regions is equal to ratio of ln of lengths
-        elif self.ratio == 'ln':
-            factors = np.log(segments+1)
-        elif self.ratio == 'expo':
-            factors = 10**segments
-        # 3) PAF ratio of two regions is equal to ratio of lengths
-        elif self.ratio == 'linear' or self.ratio == 'uniform':
-            factors = segments
-        for i, factor in enumerate(factors):
-            # calculate the inverse of the proportion of PAF that each region gets
-            term = sum(factors/float(factor))
-            # get regional PAF
-            frac = self.PAF/float(term)
-            reg = ordered[i][0]
-            # add to dict
-            region_d[reg][0] = frac
-        sites = site_d
-        regions = region_d
+        sites = self.site_d
+        regions = self.region_d
         with open(self.map_f, 'r') as infile:
             for line in infile:
                 # each line is a region
@@ -172,7 +112,7 @@ class Parallelize(luigi.WrapperTask):
     param ratio: (str) how to split PAF between regions
     """
     
-    #regions = luigi.Parameter()
+    regions = luigi.Parameter()
     #length = luigi.IntParameter()
     PAF = luigi.FloatParameter()  
     mode = luigi.Parameter() 
@@ -181,17 +121,70 @@ class Parallelize(luigi.WrapperTask):
     ratio = luigi.Parameter()
  
     def requires(self):
+        # region_d[region #] = [reg. PAF, [seg sites], per-var PAF, 
+        #                       length of region, selection coefficient]
+        # site_d[coordinate] = [region, MAF, causal indicator, protective indicator] 
+        region_d = {}
+        site_d = {}
+        with open(self.regions, 'r') as infile:
+            for i, line in enumerate(infile):
+                line = line.strip().split('\t')
+                start = int(line[0])
+                end = int(line[1])
+                name = line[2]
+                bases = end - start + 1
+                if self.mode == 'bases':
+                    bases = end - start + 1
+                elif self.mode == 'coeff':
+                    s = float(name.strip('sel'))
+                    if s != 0:
+                        #bases = 10000 * s
+                        bases = s
+                    else: #bases = 1
+                        bases = 0.0001
+                #elif self.mode = 
+                # list of sites in region
+                loci = range(start, end+1)
+                # initialize site and region dict
+                region_d[i] = [0, [], 0, bases]
+                for locus in loci:
+                    site_d[locus] = [i, 0, 0, 0]
+        # if not doing regional variation in PAF assignments
+        if self.ratio == 'uniform':
+            region_d = {0: [0, [], 0, np.sum([v[3] for k, v 
+                                                   in region_d.iteritems()])]}
+            for k, v in site_d.iteritems():
+                v[0] = 0
+        # sort the region dict (allows use of numpy array below)
+        ordered = sorted(region_d.items(), key=lambda x:x[0])
+        # get lengths of all the regions
+        segments = np.array([x[1][3] for x in ordered])
+        # divide up the total PAF using one of several possible schemas
+        # 1) PAF ratio of two regions is equal to ratio of sqrts of lengths
+        if self.ratio == 'sqrt':
+            factors = np.sqrt(segments)
+        # 2) PAF ratio of two regions is equal to ratio of ln of lengths
+        elif self.ratio == 'ln':
+            factors = np.log(segments+1)
+        elif self.ratio == 'expo':
+            factors = 10**segments
+        # 3) PAF ratio of two regions is equal to ratio of lengths
+        elif self.ratio == 'linear' or self.ratio == 'uniform':
+            factors = segments
+        for i, factor in enumerate(factors):
+            # calculate the inverse of the proportion of PAF that each region gets
+            term = sum(factors/float(factor))
+            # get regional PAF
+            frac = self.PAF/float(term)
+            reg = ordered[i][0]
+            # add to dict
+            region_d[reg][0] = frac
         # make list of map files
         cwd = os.getcwd()
         map_list = []
-        reg_list = []
         for f in os.listdir(cwd):
             if f.endswith('.map'):
                 map_list.append(f)
-            elif f.endswith('regions.txt'):
-                reg_list.append(f)
-        map_list = sorted(map_list)
-        reg_list = sorted(reg_list)
-        for map_f, reg_f in zip(map_list, reg_list):
-            yield Assign(map_f=map_f, reg_f=reg_f, ratio=self.ratio, 
-                delta=self.delta, epsilon=self.epsilon, PAF=self.PAF, mode=self.mode)
+        for map_f in map_list:
+            yield Assign(map_f=map_f, region_d=region_d, site_d=site_d, 
+                delta=self.delta, epsilon=self.epsilon)

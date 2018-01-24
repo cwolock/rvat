@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """
-subsample_population.py
+combine_regions.py
 
-Draw a sample of individuals from a .aff file until desired case/control numbers
-are reached
+
 """
 
 import luigi
@@ -15,7 +14,7 @@ from time import sleep
 class RequireFiles(luigi.ExternalTask):
     """ 
     Class for checking that necessary .mut files are present
-    param aff: (string) name of .aff file to be sampled from
+    param mut: (string) name of .mut file to be sampled from
     """
     
     aff = luigi.Parameter()
@@ -25,24 +24,29 @@ class RequireFiles(luigi.ExternalTask):
 
 class Sample(luigi.Task):
     """
-    Class for sampling from a .aff file
-    param aff: (string) name of .aff file to be sampled from
-    param casen: (int) number of cases to sample
-    param ctrln: (int) number of controls to sample
+    Class for sampling from a .mut file
+    param mut: (string) name of .mut file to be sampled from
+    param i: (int) iteration counter
+    param subsamp_size: (int) desired subsample size (number of individuals) 
+    param pop_size: (int) original population size (number of individuals)
     """
 
     aff = luigi.Parameter()
+    i = luigi.IntParameter()
+    #subsamp_size = luigi.IntParameter()
     casen = luigi.IntParameter()
     ctrln = luigi.IntParameter()
+    #pop_size = luigi.IntParameter()
 
     def requires(self):
         return RequireFiles(aff=self.aff)
     
     def output(self):
         aff_prefix = self.aff[:-3] 
-        return luigi.LocalTarget('{prefix}.smp'.format(prefix=aff_prefix))
+        return luigi.LocalTarget('{prefix}{i}.smp'.format(prefix=aff_prefix,i=self.i))
     
     def run(self):
+        #indivs = range(1,self.pop_size+1)
         cases = set()
         ctrls = set()
         with open(self.aff, 'r') as infile:
@@ -65,12 +69,16 @@ class Sample(luigi.Task):
 class Parallelize(luigi.WrapperTask):
     """
     Class for parallelizing the subsampling task
-    param casen: (int) desired number of cases
-    param ctrln: (int) desired number of ctrls
+    param subsampsize: (int) desired subsample size (number of individuals)
+    param popsize: (int) original population size (number of individuals)
+    param niters: (int) number of times to subsample from each original population
     """
     
+    #subsampsize = luigi.IntParameter()
     casen = luigi.IntParameter()
     ctrln = luigi.IntParameter()
+    #popsize = luigi.IntParameter()
+    niters = luigi.IntParameter()
     
     def requires(self):
         cwd = os.getcwd()
@@ -78,5 +86,6 @@ class Parallelize(luigi.WrapperTask):
         for f in os.listdir(cwd):
             if f.endswith('.aff'):
                 aff_list.append(f)
-        for aff in aff_list:
-            yield Sample(aff=aff, casen=self.casen, ctrln=self.ctrln)
+        for i in range(self.niters):
+            for aff in aff_list:
+                yield Sample(aff=aff, i=i, casen=self.casen, ctrln=self.ctrln)

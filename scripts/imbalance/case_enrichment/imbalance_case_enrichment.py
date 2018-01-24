@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 """
-imbalance_testing.py
+imbalance_case_enrichment.py
 
 Test for case/control enrichment under the null (no causal variants)
 with imbalanced cohort size
@@ -37,7 +37,7 @@ def run(gene_size, n_case, n_ctrl, delta, max_maf, iters, plot_file):
         print qcase, qctrl
         pval = stats.fisher_exact([[qcase, n_case-qcase],[qctrl, n_ctrl-qctrl]])[1]
         pvals.append(-np.log10(pval))
-        enriches.append(qcase/float(qcase+n_case) - qctrl/float(qctrl+n_ctrl))
+        enriches.append(qcase/float(n_case) - qctrl/float(n_ctrl))
         
     fig = plt.figure(figsize=(12,12))
     plt.xlabel('-log10(p)', fontsize=20)

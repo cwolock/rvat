@@ -79,7 +79,6 @@ class Parallelize(luigi.WrapperTask):
     length = luigi.IntParameter()
     
     def requires(self):
-        print "hello"
         cwd = os.getcwd()
         spl_list = []
         beta_list = []
