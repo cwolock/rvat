@@ -57,11 +57,11 @@ class Splice(luigi.Task):
         for f in self.mut_list:
             with open(f, 'r') as infile:
                 # find the sel coeff that matches the .mut file
-                sites = []
+                sites = set()
                 for k, v in region_dict.iteritems():
                     if k == f.split('.')[0]: 
                         # record the sites to be included from this region
-                        sites = v
+                        sites = set(v)
                 # get the relevant sites
                 for i, line in enumerate(infile):
                     line = line.strip().split()

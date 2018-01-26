@@ -40,7 +40,7 @@ class Sample(luigi.Task):
     
     def output(self):
         aff_prefix = self.aff[:-3] 
-        return luigi.LocalTarget('{prefix}.smp'.format(prefix=aff_prefix))
+        return luigi.LocalTarget('{prefix}smp'.format(prefix=aff_prefix))
     
     def run(self):
         cases = set()
