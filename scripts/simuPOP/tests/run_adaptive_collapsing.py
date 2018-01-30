@@ -5,7 +5,7 @@ run_adaptive_collapsing.py
 Run adaptive collapsing analysis on all .smp, .spl, .regions.txt files in directory and
 calculate power/type I error
 """
-from collapsing import *
+from adaptive_collapsing import *
 import argparse
 import os
  
@@ -26,8 +26,10 @@ def run(output_file, alpha):
     regs = sorted(regs)
     reject = 0
     fail = 0
-    for smp, spl in zip(smps, spls, regs):
-        results = collapse(smp, spl)
+    with open(output_file, 'w') as outfile:
+        for smp, spl, reg in zip(smps, spls, regs):
+            results = collapse(smp, spl, reg)
+        outfile.write('\t'.join(x for x in map(str, results[1])) + '\n') 
         print results
         """
         if pval <= alpha:
@@ -35,8 +37,6 @@ def run(output_file, alpha):
         else:
             fail += 1
     power = reject / float((reject + fail))  
-    with open(output_file, 'w') as outfile:
-        outfile.write(str(power))
         """
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
