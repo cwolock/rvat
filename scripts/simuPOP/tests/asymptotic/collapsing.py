@@ -14,7 +14,7 @@ def collapse(smp_file, spl_file):
     with open(smp_file, 'r') as infile:
         for line in infile:
             line = line.strip().split('\t')
-            samps[line[0]] = [line[1], []]
+            samps[line[0]] = [line[1], 0]
     # get qual status for each individual
     # later can be adapted to get genotypes if weighting scheme, etc
     # can also be adapted for recessive analysis
@@ -23,22 +23,20 @@ def collapse(smp_file, spl_file):
             line = line.strip().split('\t')
             indiv = line[0]
             if indiv in samps:
-                if len(line) == 1:
-                    samps[indiv][1] = '0'
-                else:
-                    samps[indiv][1] = '1'
+                if len(line) > 1:
+                    samps[indiv][1] += 1
     qcase, qctrl, uqcase, uqctrl = 0, 0, 0, 0
     for k, v in samps.iteritems():
         if v[0] == '0':
-            if v[1] == '0':
+            if v[1] == 0:
                 uqctrl += 1
-            elif v[1] == '1':
+            else:
                 qctrl += 1
         elif v[0] == '1':
-            if v[1] == '0':
+            if v[1] == 0:
                 uqcase += 1
-            elif v[1] == '1':
+            else:
                 qcase += 1
     pval = stats.fisher_exact([[qcase, uqcase],[qctrl, uqctrl]])[1]
+    #return (pval, smp_file, spl_file, qcase, uqcase, qctrl, uqctrl)
     return pval
-

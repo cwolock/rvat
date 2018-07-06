@@ -29,8 +29,10 @@ def run(output_file, alpha):
     with open(output_file, 'w') as outfile:
         for smp, spl, reg in zip(smps, spls, regs):
             results = collapse(smp, spl, reg)
-        outfile.write('\t'.join(x for x in map(str, results[1])) + '\n') 
-        print results
+            #line = '\t'.join([x for x in map(str, [y[1] for y in results])]) + '\n'
+            #line = '\t'.join(map(str, results)) + '\n'
+            line = str(results) + '\n'
+            outfile.write(line) 
         """
         if pval <= alpha:
             reject += 1

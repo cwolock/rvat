@@ -15,7 +15,6 @@ def collapse(smp_file, spl_file, reg_file):
         for line in infile:
             line = line.strip().split('\t')
             coeff = float('.' + line[2].strip('sel'))
-            print coeff
             start, end = int(line[0]), int(line[1])
             regions[coeff] = [start, end]
     # sorted selection coefficients from most to least intolerant
@@ -35,7 +34,7 @@ def collapse(smp_file, spl_file, reg_file):
                 if len(line) == 1:
                     pass
                 else:
-                    samps[indiv][1].append(map(int, line[1:]))
+                    samps[indiv][1].extend(map(int, line[1:]))
     results = []
     # the adaptive part - start with most intolerant region, then add on regions
     for i in range(len(coeffs)): 
@@ -44,7 +43,8 @@ def collapse(smp_file, spl_file, reg_file):
         # get list of sites in the regions that we want to include
         for coeff in coeff_to_include:
             sites = range(regions[coeff][0], regions[coeff][1] + 1)
-            sites_to_include.append(sites)
+            sites_to_include.extend(sites)
+        sites_to_include = set(sites_to_include)
         # track qualified cases and controls
         qcase, qctrl, uqcase, uqctrl = 0, 0, 0, 0
         for k, v in samps.iteritems():
@@ -60,5 +60,6 @@ def collapse(smp_file, spl_file, reg_file):
                 else:
                     uqcase += 1
         pval = stats.fisher_exact([[qcase, uqcase],[qctrl, uqctrl]])[1]
-        results.append((coeff_to_include, pval))
-    return results
+        #results.append((pval, smp_file, spl_file, qcase, uqcase, qctrl, uqctrl))
+        results.append(pval)
+    return min(results)*len(coeffs)
