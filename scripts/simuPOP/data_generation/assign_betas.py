@@ -138,7 +138,6 @@ class Assign(luigi.Task):
                 # divide reg. PAF by # of CAUSAL variant sites to get per-variant PAF
                 #value[2] = value[0]/float(value[1]) if float(value[1]) != 0 else 0
                 value[2] = value[0]/float(len(causal)) if len(causal) > 0 else 0
-        print regions
         # sort sites by position
         ordered_sites = sorted(sites.items(), key=lambda x: x[0])
         with self.output().open('w') as outfile:
@@ -181,6 +180,9 @@ class Parallelize(luigi.WrapperTask):
     ratio = luigi.Parameter()
  
     def requires(self):
+        with open('log.txt', 'w') as outfile:
+            outfile.write('\n'.join(map(str, [self.PAF, self.mode, 
+                                              self.delta, self.epsilon, self.ratio])))
         # make list of map files
         cwd = os.getcwd()
         map_list = []
